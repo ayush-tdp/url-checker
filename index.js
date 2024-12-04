@@ -5,10 +5,7 @@ async function checkUrl(url) {
   try {
     const response = await fetch(url, { method: 'HEAD' });
     if (response.ok) {
-      return {
-        status: true,
-        message: `URL exists. Content-Type: ${response.headers.get('Content-Type')}`,
-      };
+      return { status: true, message: 'URL exists' };
     }
     return { status: false, message: 'URL exists, but returned non-OK status' };
   } catch (error) {
@@ -17,84 +14,70 @@ async function checkUrl(url) {
   }
 }
 
-// Function to display video if URL is valid
-function displayVideo(url, document) {
-  const video = document.createElement('video');
-  video.src = url;
-  video.controls = true;
-  document.body.appendChild(video);
-  console.log('Video displayed');
-}
+// Function to check if iframe, video, or canvas with data exists in the loaded content
+function checkContentForData(document) {
+  // Check for iframe, video, or canvas elements
+  const iframe = document.querySelector('iframe');
+  if (iframe) {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    const canvas = iframeDoc.querySelector('canvas');
+    const video = iframeDoc.querySelector('video');
+    
+    if (canvas && canvas.getContext) {
+      const context = canvas.getContext('2d');
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      if (imageData.data.length > 0) {
+        return true; // Canvas has data
+      }
+    }
 
-// Function to display iframe if URL is valid
-function displayIframe(url, document) {
-  const iframe = document.createElement('iframe');
-  iframe.src = url;
-  iframe.width = '600';
-  iframe.height = '400';
-  document.body.appendChild(iframe);
-  console.log('Iframe displayed');
-}
-
-// Function to display image if URL is valid
-function displayImage(url, document) {
-  const img = document.createElement('img');
-  img.src = url;
-  img.alt = 'Loaded content';
-  document.body.appendChild(img);
-  console.log('Image displayed');
-}
-
-// Function to check if iframe contains canvas or video
-function checkIframeForCanvasOrVideo(iframe) {
-  const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+    if (video && video.src && !video.paused) {
+      return true; // Video is playing
+    }
+  }
   
-  // Check if there is a canvas element
-  const canvas = iframeDocument.querySelector('canvas');
-  if (canvas && canvas.getContext) {
-    const context = canvas.getContext('2d');
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    return imageData.data.length > 0; // Check if canvas has any pixel data
+  // Check for video and canvas directly in the document
+  const canvasInDocument = document.querySelector('canvas');
+  if (canvasInDocument && canvasInDocument.getContext) {
+    const context = canvasInDocument.getContext('2d');
+    const imageData = context.getImageData(0, 0, canvasInDocument.width, canvasInDocument.height);
+    if (imageData.data.length > 0) {
+      return true; // Canvas has data
+    }
   }
 
-  // Check if there is a video element
-  const video = iframeDocument.querySelector('video');
-  if (video && video.src) {
-    return video.paused === false; // Check if the video is playing (has data)
+  const videoInDocument = document.querySelector('video');
+  if (videoInDocument && videoInDocument.src && !videoInDocument.paused) {
+    return true; // Video is playing
   }
 
-  return false; // Return false if no canvas or video found
+  return false; // No iframe, video, or canvas with data found
 }
 
-// Main function to handle the URL
+// Main function to handle the URL and check the conditions
 async function handleUrl(url) {
   const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
   const document = dom.window.document;
 
   const result = await checkUrl(url);
-
-  if (result.status) {
-    console.log(result.message);
-
-    const contentType = result.message.split(': ')[1];  // Extract content type from the message
-
-    if (contentType.includes('video')) {
-      displayVideo(url, document);
-    } else if (contentType.includes('html')) {
-      const iframe = displayIframe(url, document);
-      if (checkIframeForCanvasOrVideo(iframe)) {
-        console.log('Iframe contains canvas or video with data');
-      } else {
-        console.log('Iframe does not contain canvas or video with data');
-      }
-    } else if (contentType.includes('image')) {
-      displayImage(url, document);
-    } else {
-      console.log('Unhandled content type:', contentType);
-    }
-  } else {
+  
+  if (!result.status) {
     console.warn(result.message);
+    return false; // URL not valid or returned non-OK status
   }
+
+  const contentLoaded = await fetch(url).then(response => response.text());
+  dom.window.document.body.innerHTML = contentLoaded;
+
+  const hasData = checkContentForData(dom.window.document);
+
+  if (!hasData) {
+    console.warn('No iframe, video, or canvas with data found');
+    return false; // No iframe/video/canvas with data found
+  }
+
+  console.log('Content loaded successfully with valid data');
+  return true; // Content is valid and contains iframe, video, or canvas with data
 }
 
-module.exports = { handleUrl, checkUrl, displayVideo, displayIframe, displayImage, checkIframeForCanvasOrVideo };
+module.exports = { handleUrl, checkUrl, checkContentForData };
