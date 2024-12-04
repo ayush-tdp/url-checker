@@ -45,6 +45,27 @@ function displayImage(url, document) {
   console.log('Image displayed');
 }
 
+// Function to check if iframe contains canvas or video
+function checkIframeForCanvasOrVideo(iframe) {
+  const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+  
+  // Check if there is a canvas element
+  const canvas = iframeDocument.querySelector('canvas');
+  if (canvas && canvas.getContext) {
+    const context = canvas.getContext('2d');
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    return imageData.data.length > 0; // Check if canvas has any pixel data
+  }
+
+  // Check if there is a video element
+  const video = iframeDocument.querySelector('video');
+  if (video && video.src) {
+    return video.paused === false; // Check if the video is playing (has data)
+  }
+
+  return false; // Return false if no canvas or video found
+}
+
 // Main function to handle the URL
 async function handleUrl(url) {
   const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -60,7 +81,12 @@ async function handleUrl(url) {
     if (contentType.includes('video')) {
       displayVideo(url, document);
     } else if (contentType.includes('html')) {
-      displayIframe(url, document);
+      const iframe = displayIframe(url, document);
+      if (checkIframeForCanvasOrVideo(iframe)) {
+        console.log('Iframe contains canvas or video with data');
+      } else {
+        console.log('Iframe does not contain canvas or video with data');
+      }
     } else if (contentType.includes('image')) {
       displayImage(url, document);
     } else {
@@ -71,4 +97,4 @@ async function handleUrl(url) {
   }
 }
 
-module.exports = { handleUrl, checkUrl, displayVideo, displayIframe, displayImage };
+module.exports = { handleUrl, checkUrl, displayVideo, displayIframe, displayImage, checkIframeForCanvasOrVideo };
