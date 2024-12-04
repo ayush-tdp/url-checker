@@ -1,14 +1,14 @@
 {
-  "name": "url-checker",
+  "name": "react-url-checker",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
      "start": "node index.js"
   },
-  "author": "",
+  "author": "Ayush Varma",
   "license": "ISC",
-  "description": "",
+  "description": "A package to check URL status and content type.",
   "dependencies": {
     "jsdom": "^25.0.1"
   }
